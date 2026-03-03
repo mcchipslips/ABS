@@ -190,6 +190,7 @@ def kpi_card(title, value, subtitle="", color=ACCENT):
 # ─────────────────────────────────────────────────────────────────────────────
 
 app = dash.Dash(__name__, title="Australian Multiple Births Dashboard")
+server = app.server
 app.config.suppress_callback_exceptions = True
 
 # ── Layout ────────────────────────────────────────────────────────────────────
