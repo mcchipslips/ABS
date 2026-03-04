@@ -426,9 +426,16 @@ def render_tab(tab, state, lga, yf, yt, birth_types):
         dfl_y = df_lga[df_lga["Year"] == yt].sort_values("Est. Total Multiple Births", ascending=True)
         fig = go.Figure()
         fig.add_trace(go.Bar(y=dfl_y["LGA"], x=dfl_y["Est. Multiples"], name="Multiples", orientation="h", marker_color=C_TWIN))
-        fig.update_layout(**PLOT_LAYOUT, barmode="stack",
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Georgia, serif", color=TEXT_MAIN, size=13),
+            xaxis=dict(title="Estimated Confinements", gridcolor="#1E3347", zerolinecolor="#1E3347", tickfont=dict(color=TEXT_DIM)),
+            yaxis=dict(gridcolor="#1E3347", zerolinecolor="#1E3347", tickfont=dict(color=TEXT_DIM)),
+            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_DIM)),
+            barmode="stack",
             title=dict(text=f"Estimated Multiple Births by Victorian LGA — {yt}<br><sup style='color:#3E5A72'>Proportional estimates based on ABS ERP; not official ABS LGA data</sup>", font=dict(size=15, color=TEXT_MAIN)),
-            xaxis_title="Estimated Confinements", yaxis_title="", height=700, margin=dict(l=160, r=30, t=80, b=50))
+            height=700, margin=dict(l=160, r=30, t=80, b=50),
+        )
         return dcc.Graph(figure=fig, config={"displayModeBar": False})
 
     elif tab == "rate":
