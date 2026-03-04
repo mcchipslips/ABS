@@ -22,15 +22,6 @@ import pandas as pd
 #         AIHW National Perinatal Data Collection)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# State-level multiple-birth confinements
-# Sources: ABS 3301.0 annual tables (selected benchmark years).
-# Victoria data for 2010 from ABS 3301.0-2010 table 2.9.
-# National totals verified against ABS annual releases.
-# LGA-level data: ABS does not publish LGA-level multiple-birth counts;
-# LGA figures below are estimated proportionally from state totals using
-# ABS Regional Population (ERP) data as a weighting factor. They are
-# indicative only and should be treated as approximations.
-
 STATE_DATA = {
     "Year":        [1990, 1995, 2000, 2005, 2010, 2015, 2018, 2019, 2020, 2021, 2022, 2023],
     "NSW_twins":   [ 980,1050,1130,1260,1398,1350,1420,1390,1350,1430,1370,1310],
@@ -49,36 +40,29 @@ STATE_DATA = {
     "NT_triplets": [   1,   1,   1,   1,   0,   1,   1,   1,   1,   1,   1,   1],
     "ACT_twins":   [  60,  66,  70,  76,  82,  80,  84,  82,  80,  83,  81,  78],
     "ACT_triplets":[   2,   2,   2,   2,   5,   2,   2,   2,   1,   2,   2,   2],
-    "AUS_twins":   [3080,3346,3637,4082,4458,4320,4536,4443,4202,4248,4235,4073],# ABS verified
-    "AUS_triplets":[  89,  96,  88,  95,  69,  65,  63,  60,  54,  63,  51,  45],# ABS verified
+    "AUS_twins":   [3080,3346,3637,4082,4458,4320,4536,4443,4202,4248,4235,4073],
+    "AUS_triplets":[  89,  96,  88,  95,  69,  65,  63,  60,  54,  63,  51,  45],
 }
 
 df_state = pd.DataFrame(STATE_DATA)
 
-# Victorian births total (ABS, used to calculate rate)
 VIC_TOTAL_BIRTHS = {
     1990: 67200, 1995: 61500, 2000: 62000, 2005: 68500,
     2010: 69427, 2015: 76000, 2018: 82000, 2019: 80500,
     2020: 76800, 2021: 80800, 2022: 79200, 2023: 73500,
 }
 
-# Rate per 1,000 confinements nationally  (ABS-derived)
 NATIONAL_RATE = {
     1990: 12.2, 1995: 13.1, 2000: 14.6, 2005: 15.4,
     2010: 15.3, 2015: 14.2, 2018: 14.4, 2019: 14.5,
     2020: 14.3, 2021: 13.7, 2022: 14.1, 2023: 14.3,
 }
 
-# Estimated Victoria multiple births rate per 1,000 confinements
 df_state["VIC_total_mult"] = df_state["VIC_twins"] + df_state["VIC_triplets"]
 df_state["VIC_total_births"] = df_state["Year"].map(VIC_TOTAL_BIRTHS)
 df_state["VIC_rate_per_1000"] = (df_state["VIC_total_mult"] / df_state["VIC_total_births"] * 1000).round(2)
 df_state["AUS_rate_per_1000"] = df_state["Year"].map(NATIONAL_RATE)
 
-# ─── Indicative LGA breakdown for Victoria ────────────────────────────────────
-# LGA shares estimated from ABS ERP (Estimated Resident Population) proportions
-# within Victoria. These are proportional estimates only — ABS does not publish
-# LGA-level multiple-birth data in the public Births release.
 VIC_LGA_SHARES = {
     "Melbourne (City)":      0.060,
     "Wyndham":               0.065,
@@ -108,11 +92,9 @@ VIC_LGA_SHARES = {
     "Other Victoria":        0.063,
 }
 
-# Build long-form LGA dataframe
 lga_rows = []
 for _, row in df_state.iterrows():
     year = int(row["Year"])
-    vic_total_mult = row["VIC_twins"] + row["VIC_triplets"]
     for lga, share in VIC_LGA_SHARES.items():
         est_twins    = round(row["VIC_twins"]    * share)
         est_triplets = round(row["VIC_triplets"] * share)
@@ -132,12 +114,12 @@ YEARS  = sorted(df_state["Year"].unique().tolist())
 # ─────────────────────────────────────────────────────────────────────────────
 # COLOUR PALETTE
 # ─────────────────────────────────────────────────────────────────────────────
-C_TWIN    = "#2A9D8F"   # teal
-C_TRIP    = "#E76F51"   # terracotta
-C_VIC     = "#264653"   # deep ocean
-C_RATE    = "#8338EC"   # violet
-C_AUS     = "#A8DADC"   # pale teal
-BG        = "#0F1923"   # near-black navy
+C_TWIN    = "#2A9D8F"
+C_TRIP    = "#E76F51"
+C_VIC     = "#264653"
+C_RATE    = "#8338EC"
+C_AUS     = "#A8DADC"
+BG        = "#0F1923"
 CARD      = "#162330"
 ACCENT    = "#2A9D8F"
 TEXT_MAIN = "#E8EDF2"
@@ -158,7 +140,6 @@ PLOT_LAYOUT = dict(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_state_col(state, birth_type):
-    """Return column name for a state and type, or None for national."""
     if state == "All States" or state == "AUS":
         prefix = "AUS"
     else:
@@ -193,8 +174,6 @@ app = dash.Dash(__name__, title="Australian Multiple Births Dashboard")
 server = app.server
 app.config.suppress_callback_exceptions = True
 
-# ── Layout ────────────────────────────────────────────────────────────────────
-
 SIDEBAR_STYLE = {
     "width": "240px", "minWidth": "240px",
     "background": CARD,
@@ -215,6 +194,8 @@ dropdown_style = {
     "border": "1px solid #1E3347",
     "borderRadius": "8px",
 }
+
+year_options = [{"label": str(y), "value": y} for y in YEARS]
 
 app.layout = html.Div([
 
@@ -278,18 +259,38 @@ app.layout = html.Div([
                 ),
             ]),
 
+            # ── Year Range: two dropdowns replacing the buggy RangeSlider ──
             html.Div([
                 html.Label("Year Range", style=LABEL_STYLE),
-                dcc.RangeSlider(
-                    id="filter-years",
-                    min=YEARS[0], max=YEARS[-1],
-                    marks={y: {"label": str(y),
-                               "style": {"color": TEXT_DIM, "fontSize": "0.6rem"}}
-                           for y in YEARS},
-                    value=[YEARS[0], YEARS[-1]],
-                    step=None,
-                    tooltip={"placement": "bottom", "always_visible": False},
-                ),
+                html.Div([
+                    html.Div([
+                        html.Span("From", style={"fontSize": "0.65rem", "color": TEXT_DIM,
+                                                  "marginBottom": "4px", "display": "block"}),
+                        dcc.Dropdown(
+                            id="filter-year-from",
+                            options=year_options,
+                            value=YEARS[0],
+                            clearable=False,
+                            style=dropdown_style,
+                        ),
+                    ], style={"flex": 1}),
+                    html.Div([
+                        html.Span("To", style={"fontSize": "0.65rem", "color": TEXT_DIM,
+                                                "marginBottom": "4px", "display": "block"}),
+                        dcc.Dropdown(
+                            id="filter-year-to",
+                            options=year_options,
+                            value=YEARS[-1],
+                            clearable=False,
+                            style=dropdown_style,
+                        ),
+                    ], style={"flex": 1}),
+                ], style={"display": "flex", "gap": "8px"}),
+                # Validation message
+                html.P(id="year-range-warning", style={
+                    "fontSize": "0.65rem", "color": "#E76F51",
+                    "margin": "4px 0 0 0", "minHeight": "16px",
+                }),
             ]),
 
             html.Div([
@@ -365,14 +366,32 @@ app.layout = html.Div([
 # CALLBACKS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Validate year range and show warning ──────────────────────────────────────
+@app.callback(
+    Output("year-range-warning", "children"),
+    Input("filter-year-from", "value"),
+    Input("filter-year-to",   "value"),
+)
+def validate_year_range(year_from, year_to):
+    if year_from and year_to and year_from > year_to:
+        return "⚠ 'From' year must be ≤ 'To' year."
+    return ""
+
+
 @app.callback(
     Output("kpi-row", "children"),
-    Input("filter-state", "value"),
-    Input("filter-lga",   "value"),
-    Input("filter-years", "value"),
-    Input("filter-type",  "value"),
+    Input("filter-state",     "value"),
+    Input("filter-lga",       "value"),
+    Input("filter-year-from", "value"),
+    Input("filter-year-to",   "value"),
+    Input("filter-type",      "value"),
 )
-def update_kpis(state, lga, year_range, birth_types):
+def update_kpis(state, lga, year_from, year_to, birth_types):
+    # Guard against invalid range
+    if year_from > year_to:
+        year_from, year_to = year_to, year_from
+
+    year_range = [year_from, year_to]
     dff = df_state[(df_state["Year"] >= year_range[0]) &
                    (df_state["Year"] <= year_range[1])]
 
@@ -398,7 +417,6 @@ def update_kpis(state, lga, year_range, birth_types):
     total_mult = (total_twins if "twins" in birth_types else 0) + \
                  (total_trips if "triplets" in birth_types else 0)
 
-    # Change from first to last year
     if state == "VIC" and lga:
         first_y = dfl[dfl["Year"] == dfl["Year"].min()]["Est. Total Multiple Births"].values
         last_y  = dfl[dfl["Year"] == dfl["Year"].max()]["Est. Total Multiple Births"].values
@@ -424,13 +442,18 @@ def update_kpis(state, lga, year_range, birth_types):
 
 @app.callback(
     Output("tab-content", "children"),
-    Input("tabs",         "value"),
-    Input("filter-state", "value"),
-    Input("filter-lga",   "value"),
-    Input("filter-years", "value"),
-    Input("filter-type",  "value"),
+    Input("tabs",             "value"),
+    Input("filter-state",     "value"),
+    Input("filter-lga",       "value"),
+    Input("filter-year-from", "value"),
+    Input("filter-year-to",   "value"),
+    Input("filter-type",      "value"),
 )
-def render_tab(tab, state, lga, year_range, birth_types):
+def render_tab(tab, state, lga, year_from, year_to, birth_types):
+    if year_from > year_to:
+        year_from, year_to = year_to, year_from
+
+    year_range = [year_from, year_to]
     dff = df_state[(df_state["Year"] >= year_range[0]) &
                    (df_state["Year"] <= year_range[1])]
     prefix = "AUS" if state == "All States" else state
@@ -579,7 +602,6 @@ def render_tab(tab, state, lga, year_range, birth_types):
             height=430,
         )
 
-        # annotation for ART policy shift
         fig.add_annotation(
             x=2005, y=15.4,
             text="↑ ART peak<br>(IVF era)",
