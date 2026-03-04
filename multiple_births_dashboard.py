@@ -56,6 +56,10 @@ NATIONAL_RATE = {
     2020: 14.3, 2021: 13.7, 2022: 14.1, 2023: 14.3,
 }
 
+# Add combined multiples columns for each state and national
+for _s in ["NSW","VIC","QLD","SA","WA","TAS","NT","ACT","AUS"]:
+    df_state[f"{_s}_multiples"] = df_state[f"{_s}_twins"] + df_state[f"{_s}_triplets"]
+
 df_state["VIC_total_mult"]   = df_state["VIC_twins"] + df_state["VIC_triplets"]
 df_state["VIC_total_births"] = df_state["Year"].map(VIC_TOTAL_BIRTHS)
 df_state["VIC_rate_per_1000"] = (df_state["VIC_total_mult"] / df_state["VIC_total_births"] * 1000).round(2)
@@ -109,6 +113,7 @@ for _, row in df_state.iterrows():
         ep = round(row["VIC_triplets"] * share)
         lga_rows.append({"Year": int(row["Year"]), "LGA": lga,
                           "Est. Twins": et, "Est. Triplets+": ep,
+                          "Est. Multiples": et + ep,
                           "Est. Total Multiple Births": et + ep})
 df_lga = pd.DataFrame(lga_rows)
 
@@ -222,9 +227,8 @@ app.layout = html.Div([
             html.Div([
                 html.Label("Birth Type", style=LABEL_STYLE),
                 dcc.Checklist(id="filter-type",
-                    options=[{"label": "  Twins", "value": "twins"},
-                             {"label": "  Triplets+", "value": "triplets"}],
-                    value=["twins", "triplets"],
+                    options=[{"label": "  Multiples", "value": "multiples"}],
+                    value=["multiples"],
                     labelStyle={"display": "block", "color": TEXT_DIM, "fontSize": "0.85rem", "marginBottom": "6px"},
                     inputStyle={"marginRight": "8px", "accentColor": ACCENT}),
             ]),
@@ -257,6 +261,18 @@ app.layout = html.Div([
 
     ], style={"display": "flex", "flex": 1, "overflow": "hidden", "height": "calc(100vh - 61px)"}),
 
+    # ── Footer ──────────────────────────────────────────────────────────────
+    html.Div([
+        html.Span("Yes, Justin made this.", style={
+            "color": "#2A4A5E", "fontSize": "0.65rem",
+            "fontFamily": "Georgia, serif", "fontStyle": "italic",
+        }),
+    ], style={
+        "background": BG, "padding": "6px 32px",
+        "borderTop": "1px solid #1A2E3D",
+        "textAlign": "right",
+    }),
+
 ], style={"fontFamily": "Georgia, serif", "backgroundColor": BG, "color": TEXT_MAIN,
           "height": "100vh", "display": "flex", "flexDirection": "column", "overflow": "hidden"})
 
@@ -285,23 +301,22 @@ def update_kpis(state, lga, yf, yt, birth_types):
 
     if state == "VIC" and lga:
         dfl = df_lga[(df_lga["Year"] >= yf) & (df_lga["Year"] <= yt) & (df_lga["LGA"] == lga)]
-        total_twins, total_trips = dfl["Est. Twins"].sum(), dfl["Est. Triplets+"].sum()
+        total_mult   = dfl["Est. Multiples"].sum()
         latest_year  = dfl["Year"].max()
-        lv = dfl[dfl["Year"] == latest_year]["Est. Twins"].values
-        latest_twins = lv[0] if len(lv) else 0
+        lv = dfl[dfl["Year"] == latest_year]["Est. Multiples"].values
+        latest_mult  = lv[0] if len(lv) else 0
         loc = lga
     else:
         p = "AUS" if state == "All States" else state
-        total_twins  = dff[f"{p}_twins"].sum()    if f"{p}_twins"    in dff else 0
-        total_trips  = dff[f"{p}_triplets"].sum() if f"{p}_triplets" in dff else 0
+        total_mult   = dff[f"{p}_multiples"].sum() if f"{p}_multiples" in dff else 0
         latest_year  = dff["Year"].max()
-        lv = dff[dff["Year"] == latest_year][f"{p}_twins"].values
-        latest_twins = lv[0] if len(lv) else 0
+        lv = dff[dff["Year"] == latest_year][f"{p}_multiples"].values
+        latest_mult  = lv[0] if len(lv) else 0
         loc = "Australia" if state == "All States" else state
 
     p2 = "AUS" if state == "All States" else state
     fy_row = (dfl if (state == "VIC" and lga) else dff)
-    first_col = "Est. Total Multiple Births" if (state == "VIC" and lga) else f"{p2}_twins"
+    first_col = "Est. Multiples" if (state == "VIC" and lga) else f"{p2}_multiples"
     fv = fy_row[fy_row["Year"] == fy_row["Year"].min()][first_col].values
     lv2 = fy_row[fy_row["Year"] == fy_row["Year"].max()][first_col].values
     change_str = f"{((lv2[0]-fv[0])/fv[0])*100:+.1f}% (first→last yr)" if len(fv) and fv[0]>0 and len(lv2) else "n/a"
@@ -311,11 +326,10 @@ def update_kpis(state, lga, yf, yt, birth_types):
 
     return [
         kpi_card("Location", loc, "Selected scope", C_VIC),
-        kpi_card("Total Twins (sum)", f"{total_twins:,}", f"{yf}–{yt}", C_TWIN),
-        kpi_card("Total Triplets+ (sum)", f"{total_trips:,}", f"{yf}–{yt}", C_TRIP),
-        kpi_card("Twins in Latest Year", f"{int(latest_twins):,}", str(latest_year), ACCENT),
+        kpi_card("Total Multiples (sum)", f"{total_mult:,}", f"{yf}–{yt}", C_TWIN),
+        kpi_card("Multiples in Latest Year", f"{int(latest_mult):,}", str(latest_year), ACCENT),
         kpi_card("ART Cycles (AU)", ivf_cycles, f"Latest year: {latest_year}", C_IVF),
-        kpi_card("Trend (twins)", change_str, "First to last selected year", C_RATE),
+        kpi_card("Trend (multiples)", change_str, "First to last selected year", C_RATE),
     ]
 
 
@@ -332,31 +346,86 @@ def render_tab(tab, state, lga, yf, yt, birth_types):
     if tab == "trend":
         fig = go.Figure()
         title_loc = "Australia" if state == "All States" else state
+
         if state == "VIC" and lga:
+            # ── Primary axis: LGA estimates ──────────────────────────────────
             dfl = df_lga[(df_lga["Year"] >= yf) & (df_lga["Year"] <= yt) & (df_lga["LGA"] == lga)]
-            if "twins"    in birth_types: fig.add_trace(go.Scatter(x=dfl["Year"], y=dfl["Est. Twins"], name="Est. Twins", mode="lines+markers", line=dict(color=C_TWIN, width=2.5), marker=dict(size=7)))
-            if "triplets" in birth_types: fig.add_trace(go.Scatter(x=dfl["Year"], y=dfl["Est. Triplets+"], name="Est. Triplets+", mode="lines+markers", line=dict(color=C_TRIP, width=2.5, dash="dot"), marker=dict(size=7)))
+            fig.add_trace(go.Scatter(
+                x=dfl["Year"], y=dfl["Est. Multiples"],
+                name=f"{lga} — Multiples", mode="lines+markers",
+                line=dict(color=C_TWIN, width=2.5), marker=dict(size=7),
+                yaxis="y1",
+            ))
+            # ── Secondary axis: VIC state totals ─────────────────────────────
+            fig.add_trace(go.Scatter(
+                x=dff["Year"], y=dff["VIC_multiples"],
+                name="VIC State — Multiples", mode="lines+markers",
+                line=dict(color="#A8DADC", width=1.5, dash="dash"), marker=dict(size=5),
+                yaxis="y2", opacity=0.7,
+            ))
             title_loc = lga
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="Georgia, serif", color=TEXT_MAIN, size=13),
+                title=dict(text=f"Multiple Births Over Time — {title_loc}  (vs VIC State)", font=dict(size=16, color=TEXT_MAIN)),
+                xaxis=dict(title="Year", gridcolor="#1E3347", zerolinecolor="#1E3347", tickfont=dict(color=TEXT_DIM)),
+                yaxis=dict(title=f"{lga} (estimated)", gridcolor="#1E3347", zerolinecolor="#1E3347", tickfont=dict(color=C_TWIN), title_font=dict(color=C_TWIN)),
+                yaxis2=dict(title="VIC State Total", overlaying="y", side="right",
+                            gridcolor="rgba(0,0,0,0)", tickfont=dict(color="#A8DADC"), title_font=dict(color="#A8DADC")),
+                legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_DIM)),
+                hovermode="x unified", height=430,
+                margin=dict(l=50, r=70, t=50, b=50),
+            )
+
+        elif state != "All States":
+            # ── Primary axis: selected state ──────────────────────────────────
+            fig.add_trace(go.Scatter(
+                x=dff["Year"], y=dff[f"{prefix}_multiples"],
+                name=f"{state} — Multiples", mode="lines+markers",
+                line=dict(color=C_TWIN, width=2.5), marker=dict(size=7),
+                yaxis="y1",
+            ))
+            # ── Secondary axis: national totals ───────────────────────────────
+            fig.add_trace(go.Scatter(
+                x=dff["Year"], y=dff["AUS_multiples"],
+                name="Australia — Multiples", mode="lines+markers",
+                line=dict(color="#A8DADC", width=1.5, dash="dash"), marker=dict(size=5),
+                yaxis="y2", opacity=0.7,
+            ))
+            title_loc = state
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="Georgia, serif", color=TEXT_MAIN, size=13),
+                title=dict(text=f"Multiple Births Over Time — {state}  (vs National)", font=dict(size=16, color=TEXT_MAIN)),
+                xaxis=dict(title="Year", gridcolor="#1E3347", zerolinecolor="#1E3347", tickfont=dict(color=TEXT_DIM)),
+                yaxis=dict(title=f"{state} Confinements", gridcolor="#1E3347", zerolinecolor="#1E3347", tickfont=dict(color=C_TWIN), title_font=dict(color=C_TWIN)),
+                yaxis2=dict(title="National Total", overlaying="y", side="right",
+                            gridcolor="rgba(0,0,0,0)", tickfont=dict(color="#A8DADC"), title_font=dict(color="#A8DADC")),
+                legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_DIM)),
+                hovermode="x unified", height=430,
+                margin=dict(l=50, r=70, t=50, b=50),
+            )
+
         else:
-            if "twins"    in birth_types and f"{prefix}_twins"    in dff: fig.add_trace(go.Scatter(x=dff["Year"], y=dff[f"{prefix}_twins"], name="Twins", mode="lines+markers", line=dict(color=C_TWIN, width=2.5), marker=dict(size=7)))
-            if "triplets" in birth_types and f"{prefix}_triplets" in dff: fig.add_trace(go.Scatter(x=dff["Year"], y=dff[f"{prefix}_triplets"], name="Triplets+", mode="lines+markers", line=dict(color=C_TRIP, width=2.5, dash="dot"), marker=dict(size=7)))
-        fig.update_layout(**PLOT_LAYOUT, title=dict(text=f"Multiple Births Over Time — {title_loc}", font=dict(size=16, color=TEXT_MAIN)), xaxis_title="Year", yaxis_title="Number of Confinements", hovermode="x unified", height=430)
+            # ── All States: single axis national view ─────────────────────────
+            fig.add_trace(go.Scatter(x=dff["Year"], y=dff["AUS_multiples"], name="Multiples", mode="lines+markers", line=dict(color=C_TWIN, width=2.5), marker=dict(size=7)))
+            fig.update_layout(**PLOT_LAYOUT, title=dict(text="Multiple Births Over Time — Australia", font=dict(size=16, color=TEXT_MAIN)), xaxis_title="Year", yaxis_title="Number of Confinements", hovermode="x unified", height=430)
+
         return dcc.Graph(figure=fig, config={"displayModeBar": False})
 
     elif tab == "state":
         sl = ["NSW","VIC","QLD","SA","WA","TAS","NT","ACT"]
         row = df_state[df_state["Year"] == yt].iloc[0]
         fig = go.Figure()
-        if "twins"    in birth_types: fig.add_trace(go.Bar(x=sl, y=[row[f"{s}_twins"]    for s in sl], name="Twins",     marker_color=[C_TWIN if s==state else "#1E5C6E" for s in sl]))
-        if "triplets" in birth_types: fig.add_trace(go.Bar(x=sl, y=[row[f"{s}_triplets"] for s in sl], name="Triplets+", marker_color=[C_TRIP if s==state else "#7A3625" for s in sl]))
+        fig.add_trace(go.Bar(x=sl, y=[row[f"{s}_multiples"] for s in sl], name="Multiples",
+            marker_color=[C_TWIN if s==state else "#1E5C6E" for s in sl]))
         fig.update_layout(**PLOT_LAYOUT, barmode="group", title=dict(text=f"Multiple Births by State — {yt}  (highlighted: {state})", font=dict(size=16, color=TEXT_MAIN)), xaxis_title="State / Territory", yaxis_title="Number of Confinements", height=430)
         return dcc.Graph(figure=fig, config={"displayModeBar": False})
 
     elif tab == "lga":
         dfl_y = df_lga[df_lga["Year"] == yt].sort_values("Est. Total Multiple Births", ascending=True)
         fig = go.Figure()
-        if "twins"    in birth_types: fig.add_trace(go.Bar(y=dfl_y["LGA"], x=dfl_y["Est. Twins"],     name="Est. Twins",     orientation="h", marker_color=C_TWIN))
-        if "triplets" in birth_types: fig.add_trace(go.Bar(y=dfl_y["LGA"], x=dfl_y["Est. Triplets+"], name="Est. Triplets+", orientation="h", marker_color=C_TRIP))
+        fig.add_trace(go.Bar(y=dfl_y["LGA"], x=dfl_y["Est. Multiples"], name="Multiples", orientation="h", marker_color=C_TWIN))
         fig.update_layout(**PLOT_LAYOUT, barmode="stack",
             title=dict(text=f"Estimated Multiple Births by Victorian LGA — {yt}<br><sup style='color:#3E5A72'>Proportional estimates based on ABS ERP; not official ABS LGA data</sup>", font=dict(size=15, color=TEXT_MAIN)),
             xaxis_title="Estimated Confinements", yaxis_title="", height=700, margin=dict(l=160, r=30, t=80, b=50))
@@ -384,14 +453,9 @@ def render_tab(tab, state, lga, yf, yt, birth_types):
             name="ART Cycles (Australia)", marker_color=C_IVF, opacity=0.7, yaxis="y1",
         ))
         fig1.add_trace(go.Scatter(
-            x=dff_m["Year"], y=dff_m["AUS_twins"],
-            name="National Twins", mode="lines+markers",
+            x=dff_m["Year"], y=dff_m["AUS_multiples"],
+            name="National Multiples", mode="lines+markers",
             line=dict(color=C_TWIN, width=2.5), marker=dict(size=7), yaxis="y2",
-        ))
-        fig1.add_trace(go.Scatter(
-            x=dff_m["Year"], y=dff_m["AUS_triplets"],
-            name="National Triplets+", mode="lines+markers",
-            line=dict(color=C_TRIP, width=2, dash="dot"), marker=dict(size=6), yaxis="y2",
         ))
         fig1.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -467,6 +531,14 @@ def render_tab(tab, state, lga, yf, yt, birth_types):
                     "Sources: ANZARD/AIHW ART reports 2007, 2008, 2010; UNSW NPESU ANZARD 2021, 2023.",
                     style={"color": "#3E5A72"}),
             ], style={"fontSize": "0.65rem", "marginTop": "10px", "lineHeight": "1.5"}),
+            html.P([
+                html.Em("State & LGA breakdown: ", style={"color": "#3E5A72"}),
+                html.Span(
+                    "ANZARD public reports only publish national totals. State-level clinic data exists "
+                    "but is not publicly tabulated. LGA/postcode-level IVF data is not available in "
+                    "any public release — access requires a formal research data request to NPESU, UNSW.",
+                    style={"color": "#3E5A72"}),
+            ], style={"fontSize": "0.65rem", "marginTop": "6px", "lineHeight": "1.5"}),
         ], style={
             "background": "#0D2030", "border": "1px solid #1E3347",
             "borderLeft": f"4px solid {ACCENT}", "borderRadius": "10px",
@@ -482,13 +554,9 @@ def render_tab(tab, state, lga, yf, yt, birth_types):
     elif tab == "table":
         if state == "VIC" and lga:
             dfl = df_lga[(df_lga["Year"] >= yf) & (df_lga["Year"] <= yt) & (df_lga["LGA"] == lga)]
-            table_df = dfl[["Year","LGA","Est. Twins","Est. Triplets+","Est. Total Multiple Births"]].copy()
+            table_df = dfl[["Year","LGA","Est. Multiples"]].copy()
         else:
-            cols = ["Year"]
-            for bt in birth_types:
-                if bt == "twins"    and f"{prefix}_twins"    in dff: cols.append(f"{prefix}_twins")
-                if bt == "triplets" and f"{prefix}_triplets" in dff: cols.append(f"{prefix}_triplets")
-            cols += ["AUS_rate_per_1000"]
+            cols = ["Year", f"{prefix}_multiples", "AUS_rate_per_1000"]
             if prefix == "VIC": cols += ["VIC_rate_per_1000"]
             table_df = dff[cols].copy()
             table_df.columns = [c.replace(f"{prefix}_","").replace("_"," ").title() for c in cols]
